@@ -34,7 +34,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
       const result = await query(
-        'SELECT id, name, wedding_date, owner_id, archived, created_at FROM workspaces WHERE id = $1',
+        'SELECT id, name, wedding_date, owner_id, archived, created_at, cover_image_url FROM workspaces WHERE id = $1',
         [workspaceId]
       );
 
@@ -61,18 +61,43 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       return res.status(403).json({ message: 'Forbidden: You do not have permission to edit this workspace' });
     }
 
-    const { name, weddingDate } = req.body;
-    if (!name || typeof name !== 'string' || name.trim().length === 0) {
-      return res.status(400).json({ message: 'Workspace name is required' });
+    const { name, weddingDate, coverImageUrl } = req.body;
+    
+    // Support partial updates
+    const queryFields: string[] = [];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+
+    if (name !== undefined) {
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: 'Workspace name is required' });
+      }
+      queryFields.push(`name = $${paramIndex++}`);
+      queryParams.push(name.trim());
     }
-    if (!weddingDate || isNaN(Date.parse(weddingDate))) {
-      return res.status(400).json({ message: 'A valid wedding date is required' });
+
+    if (weddingDate !== undefined) {
+      if (!weddingDate || isNaN(Date.parse(weddingDate))) {
+        return res.status(400).json({ message: 'A valid wedding date is required' });
+      }
+      queryFields.push(`wedding_date = $${paramIndex++}`);
+      queryParams.push(weddingDate);
+    }
+
+    if (coverImageUrl !== undefined) {
+      queryFields.push(`cover_image_url = $${paramIndex++}`);
+      queryParams.push(coverImageUrl || null);
+    }
+
+    if (queryFields.length === 0) {
+      return res.status(400).json({ message: 'No fields to update' });
     }
 
     try {
+      queryParams.push(workspaceId);
       const updateResult = await query(
-        'UPDATE workspaces SET name = $1, wedding_date = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
-        [name.trim(), weddingDate, workspaceId]
+        `UPDATE workspaces SET ${queryFields.join(', ')}, updated_at = NOW() WHERE id = $${paramIndex} RETURNING *`,
+        queryParams
       );
 
       return res.status(200).json({

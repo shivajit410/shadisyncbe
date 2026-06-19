@@ -8,17 +8,42 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   const { workspaceId } = req.method === 'GET' ? req.query : req.body;
 
   if (req.method === 'GET') {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
     try {
-      const result = await query(
-        `SELECT t.*, u.name as assignee_name, e.title as event_title, c.name as category_name 
-         FROM tasks t
-         LEFT JOIN users u ON t.assigned_to = u.id
-         LEFT JOIN events e ON t.event_id = e.id
-         LEFT JOIN categories c ON t.category_id = c.id
-         WHERE t.workspace_id = $1
-         ORDER BY t.due_date ASC, t.created_at DESC`,
-        [workspaceId]
+      const memberRoleResult = await query(
+        'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+        [workspaceId, userId]
       );
+      const role = memberRoleResult.rows[0]?.role || 'VIEWER';
+
+      let result;
+      if (role === 'OWNER' || role === 'EDITOR') {
+        result = await query(
+          `SELECT t.*, u.name as assignee_name, e.title as event_title, c.name as category_name 
+           FROM tasks t
+           LEFT JOIN users u ON t.assigned_to = u.id
+           LEFT JOIN events e ON t.event_id = e.id
+           LEFT JOIN categories c ON t.category_id = c.id
+           WHERE t.workspace_id = $1
+           ORDER BY t.due_date ASC, t.created_at DESC`,
+          [workspaceId]
+        );
+      } else {
+        result = await query(
+          `SELECT t.*, u.name as assignee_name, e.title as event_title, c.name as category_name 
+           FROM tasks t
+           LEFT JOIN users u ON t.assigned_to = u.id
+           LEFT JOIN events e ON t.event_id = e.id
+           LEFT JOIN categories c ON t.category_id = c.id
+           WHERE t.workspace_id = $1 AND (t.assigned_to = $2 OR t.created_by = $2 OR t.assigned_to IS NULL)
+           ORDER BY t.due_date ASC, t.created_at DESC`,
+          [workspaceId, userId]
+        );
+      }
       return res.status(200).json({ tasks: result.rows });
     } catch (error: any) {
       console.error('Fetch Tasks API Error:', error);

@@ -16,18 +16,21 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    // 1. Fetch Task to get workspace_id and current assignee
-    const taskCheck = await query('SELECT workspace_id, assigned_to, title, status FROM tasks WHERE id = $1', [taskId]);
+    // 1. Fetch Task to get workspace_id, current assignee, and creator
+    const taskCheck = await query('SELECT workspace_id, assigned_to, created_by, title, status FROM tasks WHERE id = $1', [taskId]);
     if (taskCheck.rows.length === 0) {
       return res.status(404).json({ message: 'Task not found' });
     }
-    const { workspace_id: workspaceId, assigned_to: previousAssignee, title: taskTitle } = taskCheck.rows[0];
+    const { workspace_id: workspaceId, assigned_to: previousAssignee, created_by: taskCreator, title: taskTitle } = taskCheck.rows[0];
 
     // Handle UPDATE
     if (req.method === 'PUT' || req.method === 'PATCH') {
-      // Check edit permission
+      // Check edit permission: allow edit if workspace permission granted OR user is assignee OR user is creator
       const hasEditPerm = await verifyPermission(userId, workspaceId, 'Tasks', 'edit');
-      if (!hasEditPerm) {
+      const isAssignee = previousAssignee === userId;
+      const isCreator = taskCreator === userId;
+
+      if (!hasEditPerm && !isAssignee && !isCreator) {
         return res.status(403).json({ message: 'Forbidden: You do not have permission to edit tasks' });
       }
 

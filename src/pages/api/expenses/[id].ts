@@ -30,7 +30,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         return res.status(403).json({ message: 'Forbidden: You do not have permission to edit expenses' });
       }
 
-      const { amount, description, categoryId, eventId, expenseDate } = req.body;
+      const { amount, description, categoryId, eventId, taskId, expenseDate } = req.body;
 
       if (amount === undefined || isNaN(Number(amount)) || Number(amount) <= 0) {
         return res.status(400).json({ message: 'A valid positive expense amount is required' });
@@ -58,14 +58,25 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         }
       }
 
+      // Validate task belongs to workspace
+      if (taskId) {
+        const taskCheck = await query(
+          'SELECT 1 FROM tasks WHERE id = $1 AND workspace_id = $2',
+          [taskId, workspaceId]
+        );
+        if (taskCheck.rows.length === 0) {
+          return res.status(400).json({ message: 'Invalid Task ID' });
+        }
+      }
+
       const formattedDate = expenseDate || new Date().toISOString().split('T')[0];
 
       const updateResult = await query(
         `UPDATE expenses 
-         SET amount = $1, description = $2, category_id = $3, event_id = $4, expense_date = $5 
-         WHERE id = $6 
+         SET amount = $1, description = $2, category_id = $3, event_id = $4, task_id = $5, expense_date = $6 
+         WHERE id = $7 
          RETURNING *`,
-        [Number(amount), description || null, categoryId || null, eventId || null, formattedDate, expenseId]
+        [Number(amount), description || null, categoryId || null, eventId || null, taskId || null, formattedDate, expenseId]
       );
 
       // Automatically update the budget spent amount

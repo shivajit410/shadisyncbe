@@ -10,12 +10,13 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
       const result = await query(
-        `SELECT e.id, e.amount, e.description, e.expense_date, e.created_at, 
-                c.name AS category_name, ev.title AS event_title, u.name AS creator_name 
+        `SELECT e.id, e.amount, e.description, e.expense_date, e.created_at, e.task_id,
+                c.name AS category_name, ev.title AS event_title, u.name AS creator_name, t.title AS task_title
          FROM expenses e
          LEFT JOIN categories c ON e.category_id = c.id
          LEFT JOIN events ev ON e.event_id = ev.id
          LEFT JOIN users u ON e.created_by = u.id
+         LEFT JOIN tasks t ON e.task_id = t.id
          WHERE e.workspace_id = $1
          ORDER BY e.expense_date DESC, e.created_at DESC`,
         [workspaceId]
@@ -28,7 +29,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   }
 
   if (req.method === 'POST') {
-    const { amount, description, categoryId, eventId, expenseDate } = req.body;
+    const { amount, description, categoryId, eventId, taskId, expenseDate } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -61,11 +62,22 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         }
       }
 
+      // Validate task belongs to workspace
+      if (taskId) {
+        const taskCheck = await query(
+          'SELECT 1 FROM tasks WHERE id = $1 AND workspace_id = $2',
+          [taskId, workspaceId]
+        );
+        if (taskCheck.rows.length === 0) {
+          return res.status(400).json({ message: 'Invalid Task ID' });
+        }
+      }
+
       const formattedDate = expenseDate || new Date().toISOString().split('T')[0];
 
       const result = await query(
-        `INSERT INTO expenses (workspace_id, amount, description, category_id, event_id, created_by, expense_date)
-         VALUES ($1, $2, $3, $4, $5, $6, $7) 
+        `INSERT INTO expenses (workspace_id, amount, description, category_id, event_id, task_id, created_by, expense_date)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
          RETURNING *`,
         [
           workspaceId,
@@ -73,6 +85,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
           description || null,
           categoryId || null,
           eventId || null,
+          taskId || null,
           userId,
           formattedDate,
         ]

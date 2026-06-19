@@ -12,7 +12,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
     try {
       // Get all active (non-archived) workspaces for the authenticated user
       const result = await query(
-        `SELECT w.id, w.name, w.wedding_date, w.owner_id, w.archived, wm.role, w.created_at
+        `SELECT w.id, w.name, w.wedding_date, w.owner_id, w.archived, wm.role, w.created_at, w.cover_image_url
          FROM workspaces w
          JOIN workspace_members wm ON w.id = wm.workspace_id
          WHERE wm.user_id = $1 AND w.archived = false
