@@ -61,6 +61,9 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         return res.status(403).json({ message: 'Forbidden: You do not have permission to delete events' });
       }
 
+      // Cascade delete tasks linked to this event
+      await query('DELETE FROM tasks WHERE event_id = $1', [eventId]);
+
       const deleteResult = await query('DELETE FROM events WHERE id = $1 RETURNING *', [eventId]);
       return res.status(200).json({ message: 'Event deleted successfully', event: deleteResult.rows[0] });
     }

@@ -33,6 +33,9 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       return res.status(403).json({ message: 'Forbidden: You do not have permission to delete categories' });
     }
 
+    // Cascade delete tasks linked to this category
+    await query('DELETE FROM tasks WHERE category_id = $1', [categoryId]);
+
     const deleteResult = await query('DELETE FROM categories WHERE id = $1 RETURNING *', [categoryId]);
     return res.status(200).json({
       message: 'Category deleted successfully',
