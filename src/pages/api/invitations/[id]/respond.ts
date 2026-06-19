@@ -1,6 +1,7 @@
 import type { NextApiResponse } from 'next';
 import { db, query } from '@/lib/db';
 import { withAuth, AuthenticatedNextApiRequest } from '@/lib/middleware';
+import { createNotification } from '@/lib/notifications';
 
 async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -64,17 +65,14 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
           [invite.workspace_id, userId, invite.role]
         );
 
-        // Notify the inviter that the invitation was accepted
-        await client.query(
-          'INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)',
-          [
-            invite.invited_by,
-            'Invitation Accepted',
-            `User with phone ${userPhone} has accepted your invitation to join the workspace.`,
-          ]
-        );
-
         await client.query('COMMIT');
+
+        // Notify the inviter that the invitation was accepted (non-blocking push)
+        createNotification(
+          invite.invited_by,
+          'Invitation Accepted',
+          `User with phone ${userPhone} has accepted your invitation to join the workspace.`
+        ).catch((err) => console.error('Failed to notify inviter of accept:', err));
 
         return res.status(200).json({ message: 'Invitation accepted and workspace joined' });
       } catch (error: any) {
@@ -92,14 +90,11 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       );
 
       // Notify the inviter that the invitation was declined
-      await query(
-        'INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)',
-        [
-          invite.invited_by,
-          'Invitation Declined',
-          `User with phone ${userPhone} has declined your invitation to join the workspace.`,
-        ]
-      );
+      createNotification(
+        invite.invited_by,
+        'Invitation Declined',
+        `User with phone ${userPhone} has declined your invitation to join the workspace.`
+      ).catch((err) => console.error('Failed to notify inviter of decline:', err));
 
       return res.status(200).json({ message: 'Invitation rejected successfully' });
     }

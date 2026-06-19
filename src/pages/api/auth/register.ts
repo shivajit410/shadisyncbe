@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
+import { createNotification } from '@/lib/notifications';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("here")
@@ -41,6 +42,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
 
     const newUser = insertResult.rows[0];
+
+    // Check for pre-existing pending invitations for this phone number
+    try {
+      const pendingInvites = await query(
+        `SELECT i.id, w.name AS workspace_name, i.role 
+         FROM invitations i
+         JOIN workspaces w ON i.workspace_id = w.id
+         WHERE i.phone_number = $1 AND i.status = 'PENDING'`,
+        [normalizedPhone]
+      );
+
+      for (const invite of pendingInvites.rows) {
+        await createNotification(
+          newUser.id,
+          'New Workspace Invitation',
+          `You have a pending invitation to join "${invite.workspace_name}" as an ${invite.role}. Go to settings to respond!`
+        );
+      }
+    } catch (inviteErr) {
+      console.error('Failed to link pre-existing invitations:', inviteErr);
+    }
 
     // Generate JWT Token
     const token = generateToken({

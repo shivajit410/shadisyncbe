@@ -73,13 +73,13 @@ export async function checkAndNotifyBudget(workspaceId: string) {
           await createNotification(
             ownerId,
             'Budget Limit Reached (100%)',
-            `Alert: Your expenses in "${workspaceName}" have reached 100% of your allocated budget ($${spentNum} / $${allocatedNum}).`
+            `Alert: Your expenses in "${workspaceName}" have reached 100% of your allocated budget (₹${spentNum.toLocaleString('en-IN')} / ₹${allocatedNum.toLocaleString('en-IN')}).`
           );
         } else if (ratio >= 0.90) {
           await createNotification(
             ownerId,
             'Budget Warning (90%)',
-            `Warning: Your expenses in "${workspaceName}" have reached 90% of your allocated budget ($${spentNum} / $${allocatedNum}).`
+            `Warning: Your expenses in "${workspaceName}" have reached 90% of your allocated budget (₹${spentNum.toLocaleString('en-IN')} / ₹${allocatedNum.toLocaleString('en-IN')}).`
           );
         }
       }

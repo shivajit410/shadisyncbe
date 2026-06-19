@@ -71,7 +71,6 @@ export function withPermission(
     // Attempt to extract workspaceId
     const workspaceId =
       (req.query.workspaceId as string) ||
-      (req.query.id as string) ||
       (req.body.workspaceId as string) ||
       (req.headers['x-workspace-id'] as string);
 
