@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   // Only handle API routes
   if (request.nextUrl.pathname.startsWith('/api')) {
     // Check request origin, default to * or request origin
@@ -35,7 +35,6 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
-// See "Matching Paths" below to learn more
 export const config = {
   matcher: '/api/:path*',
 };
