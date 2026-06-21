@@ -2,8 +2,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { query } from '@/lib/db';
 import { hashPassword, generateToken } from '@/lib/auth';
 import { createNotification } from '@/lib/notifications';
+import { withCors } from '@/lib/middleware';
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log("here")
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -83,3 +84,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(500).json({ message: 'Internal Server Error' });
   }
 }
+
+export default withCors(handler);
