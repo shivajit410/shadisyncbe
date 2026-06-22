@@ -5,7 +5,7 @@ import { withPermission } from '@/lib/permissions';
 
 async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   const { id } = req.query;
-  const { workspaceId } = req.method === 'PUT' ? req.body : req.query;
+  const workspaceId = (req.query.workspaceId as string) || (req.body.workspaceId as string);
 
   if (!id || typeof id !== 'string') {
     return res.status(400).json({ message: 'Note ID is required' });
