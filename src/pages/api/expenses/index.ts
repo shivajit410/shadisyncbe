@@ -40,6 +40,29 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
     }
 
     try {
+      // Check user's allocated budget limit in the workspace
+      const memberRes = await query(
+        'SELECT role, allocated_budget FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+        [workspaceId, userId]
+      );
+      if (memberRes.rows.length > 0) {
+        const member = memberRes.rows[0];
+        if (member.allocated_budget !== null && member.allocated_budget !== undefined) {
+          const limit = Number(member.allocated_budget);
+          // Calculate the total spent by this user in this workspace
+          const spentRes = await query(
+            'SELECT SUM(amount) AS total_spent FROM expenses WHERE workspace_id = $1 AND created_by = $2',
+            [workspaceId, userId]
+          );
+          const currentSpent = Number(spentRes.rows[0].total_spent || 0);
+          if (currentSpent + Number(amount) > limit) {
+            return res.status(400).json({
+              message: `Expense exceeds your allocated budget limit of ₹${limit.toLocaleString('en-IN')}. Remaining: ₹${(limit - currentSpent).toLocaleString('en-IN')}`,
+            });
+          }
+        }
+      }
+
       // Validate category belongs to workspace
       if (categoryId) {
         const catCheck = await query(
