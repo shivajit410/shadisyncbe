@@ -40,12 +40,13 @@ async function run() {
       LEFT JOIN categories c ON t.category_id = c.id
       WHERE t.workspace_id = '35cf7edf-0850-45ad-bede-e5c8caae27ac'
     `);
-    const resColumns = await pool.query(`
-      SELECT column_name, data_type, is_nullable 
-      FROM information_schema.columns 
-      WHERE table_name = 'invitations'
+    const resConstraints = await pool.query(`
+      SELECT conname, pg_get_constraintdef(c.oid) 
+      FROM pg_constraint c 
+      JOIN pg_namespace n ON n.oid = c.connamespace 
+      WHERE conrelid = 'attachments'::regclass
     `);
-    console.log('Invitations columns:', resColumns.rows);
+    console.log('Attachments constraints:', resConstraints.rows);
   } catch (err) {
     console.error(err);
   } finally {

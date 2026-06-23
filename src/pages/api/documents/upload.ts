@@ -111,12 +111,9 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         fileUrl = urlData.publicUrl;
       } catch (supabaseError: any) {
         console.error('Supabase upload failed:', supabaseError);
-        // If we are on Vercel/serverless where local write fails, don't fall back, throw immediately!
-        if (process.env.VERCEL) {
-          return res.status(500).json({
-            message: `Supabase storage upload failed: ${supabaseError.message || 'Unknown error'}`,
-          });
-        }
+        return res.status(500).json({
+          message: `Supabase storage upload failed: ${supabaseError.message || 'Unknown error'}`,
+        });
       }
     }
 
