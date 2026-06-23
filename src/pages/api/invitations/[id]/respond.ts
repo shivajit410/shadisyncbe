@@ -28,7 +28,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   try {
     // 1. Fetch the invitation details
     const inviteResult = await query(
-      'SELECT workspace_id, phone_number, role, status, invited_by FROM invitations WHERE id = $1',
+      'SELECT workspace_id, phone_number, role, status, invited_by, permissions, allocated_budget FROM invitations WHERE id = $1',
       [invitationId]
     );
 
@@ -61,8 +61,8 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
 
         // Add user as member to the workspace
         await client.query(
-          'INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, $3)',
-          [invite.workspace_id, userId, invite.role]
+          'INSERT INTO workspace_members (workspace_id, user_id, role, permissions, allocated_budget) VALUES ($1, $2, $3, $4, $5)',
+          [invite.workspace_id, userId, invite.role, invite.permissions ? JSON.stringify(invite.permissions) : null, invite.allocated_budget || null]
         );
 
         await client.query('COMMIT');

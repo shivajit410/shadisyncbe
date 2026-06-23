@@ -12,9 +12,9 @@ export async function verifyPermission(
   action: 'view' | 'create' | 'edit' | 'delete'
 ): Promise<boolean> {
   try {
-    // 1. Get user role in the workspace
+    // 1. Get user role and custom permissions in the workspace
     const memberResult = await query(
-      'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT role, permissions FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
       [workspaceId, userId]
     );
 
@@ -22,7 +22,18 @@ export async function verifyPermission(
       return false; // Not a member
     }
 
-    const role = memberResult.rows[0].role;
+    const { role, permissions } = memberResult.rows[0];
+
+    // If custom granular permissions are defined for this user and module, use them
+    if (permissions && typeof permissions === 'object') {
+      const modulePerms = (permissions as any)[moduleName];
+      if (modulePerms && typeof modulePerms === 'object') {
+        const hasActionPerm = modulePerms[action];
+        if (typeof hasActionPerm === 'boolean') {
+          return hasActionPerm;
+        }
+      }
+    }
 
     // 2. Fetch permission for this role and module
     const permissionResult = await query(

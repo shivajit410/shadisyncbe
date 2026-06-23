@@ -31,7 +31,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
 
     // Fetch all members with user details
     const result = await query(
-      `SELECT u.id, u.name, u.phone, m.role 
+      `SELECT u.id, u.name, u.phone, m.role, m.permissions, m.allocated_budget 
        FROM workspace_members m
        JOIN users u ON m.user_id = u.id
        WHERE m.workspace_id = $1
@@ -39,7 +39,19 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       [workspaceId]
     );
 
-    return res.status(200).json({ members: result.rows });
+    // Fetch pending invitations
+    const invitesResult = await query(
+      `SELECT id, phone_number, role, status, permissions, allocated_budget, created_at
+       FROM invitations
+       WHERE workspace_id = $1 AND status = 'PENDING'
+       ORDER BY created_at DESC`,
+      [workspaceId]
+    );
+
+    return res.status(200).json({ 
+      members: result.rows,
+      invitations: invitesResult.rows
+    });
   } catch (error: any) {
     console.error('Fetch Workspace Members API Error:', error);
     return res.status(500).json({ message: 'Internal Server Error' });

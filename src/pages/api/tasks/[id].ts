@@ -110,16 +110,25 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
 
       // Send completion notification if task was marked Completed
       if (status === 'Completed' && status !== taskCheck.rows[0].status) {
-        const creatorCheck = await query('SELECT created_by FROM tasks WHERE id = $1', [taskId]);
-        if (creatorCheck.rows.length > 0) {
-          const creatorId = creatorCheck.rows[0].created_by;
-          if (creatorId && creatorId !== userId) {
-            await createNotification(
-              creatorId,
-              'Task Completed',
-              `The task "${taskTitle}" was marked as Completed.`
-            );
-          }
+        const ownerCheck = await query('SELECT owner_id FROM workspaces WHERE id = $1', [workspaceId]);
+        const workspaceOwnerId = ownerCheck.rows[0]?.owner_id;
+
+        // Notify creator if they are not the one who completed it
+        if (taskCreator && taskCreator !== userId) {
+          await createNotification(
+            taskCreator,
+            'Task Completed',
+            `The task "${taskTitle}" was marked as Completed.`
+          );
+        }
+
+        // Notify owner if they are not the creator and not the one who completed it
+        if (workspaceOwnerId && workspaceOwnerId !== userId && workspaceOwnerId !== taskCreator) {
+          await createNotification(
+            workspaceOwnerId,
+            'Task Completed',
+            `The task "${taskTitle}" was marked as Completed.`
+          );
         }
       }
 

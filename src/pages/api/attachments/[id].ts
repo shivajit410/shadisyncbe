@@ -19,11 +19,12 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    // 1. Fetch Attachment and check workspace association via joined document
+    // 1. Fetch Attachment and check workspace association via joined document or folder
     const checkResult = await query(
-      `SELECT a.id, d.workspace_id 
+      `SELECT a.id, d.workspace_id AS doc_ws, f.workspace_id AS folder_ws 
        FROM attachments a
-       JOIN documents d ON a.document_id = d.id
+       LEFT JOIN documents d ON a.document_id = d.id
+       LEFT JOIN folders f ON a.folder_id = f.id
        WHERE a.id = $1`,
       [attachmentId]
     );
@@ -32,7 +33,10 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       return res.status(404).json({ message: 'Attachment not found' });
     }
 
-    const workspaceId = checkResult.rows[0].workspace_id;
+    const workspaceId = checkResult.rows[0].doc_ws || checkResult.rows[0].folder_ws;
+    if (!workspaceId) {
+      return res.status(404).json({ message: 'Attachment workspace association not found' });
+    }
 
     // 2. Verify user is a member of the workspace
     const memberCheck = await query(

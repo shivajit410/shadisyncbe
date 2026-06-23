@@ -100,7 +100,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       );
 
       // Check budget spent warning thresholds (90% / 100%)
-      await checkAndNotifyBudget(workspaceId);
+      await checkAndNotifyBudget(workspaceId, userId);
 
       return res.status(201).json({ expense: result.rows[0] });
     } catch (error: any) {

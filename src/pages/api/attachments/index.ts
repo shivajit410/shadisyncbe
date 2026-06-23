@@ -48,10 +48,12 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       }
 
       const result = await query(
-        `SELECT a.id, a.document_id, a.entity_type, a.entity_id, a.created_at,
-                d.name AS document_name, d.file_url, d.file_size, d.mime_type
+        `SELECT a.id, a.document_id, a.folder_id, a.entity_type, a.entity_id, a.created_at,
+                d.name AS document_name, d.file_url, d.file_size, d.mime_type,
+                f.name AS folder_name
          FROM attachments a
-         JOIN documents d ON a.document_id = d.id
+         LEFT JOIN documents d ON a.document_id = d.id
+         LEFT JOIN folders f ON a.folder_id = f.id
          WHERE a.entity_type = $1 AND a.entity_id = $2
          ORDER BY a.created_at DESC`,
         [entityType, entityId]
@@ -65,10 +67,10 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   }
 
   if (req.method === 'POST') {
-    const { documentId, entityType, entityId } = req.body;
+    const { documentId, folderId, entityType, entityId } = req.body;
 
-    if (!documentId || !entityType || !entityId) {
-      return res.status(400).json({ message: 'documentId, entityType, and entityId are required' });
+    if ((!documentId && !folderId) || !entityType || !entityId) {
+      return res.status(400).json({ message: 'Either documentId or folderId, and entityType and entityId are required' });
     }
     if (!['EXPENSE', 'TASK', 'NOTE', 'EVENT'].includes(entityType)) {
       return res.status(400).json({ message: 'Invalid entityType' });
@@ -89,37 +91,60 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         return res.status(403).json({ message: 'Forbidden' });
       }
 
-      // Verify the document belongs to the same workspace
-      const docCheck = await query(
-        'SELECT 1 FROM documents WHERE id = $1 AND workspace_id = $2',
-        [documentId, workspaceId]
-      );
-      if (docCheck.rows.length === 0) {
-        return res.status(400).json({ message: 'Document does not belong to this workspace' });
+      // Verify the document or folder belongs to the same workspace
+      if (documentId) {
+        const docCheck = await query(
+          'SELECT 1 FROM documents WHERE id = $1 AND workspace_id = $2',
+          [documentId, workspaceId]
+        );
+        if (docCheck.rows.length === 0) {
+          return res.status(400).json({ message: 'Document does not belong to this workspace' });
+        }
+
+        // Check for duplicate attachment
+        const dupCheck = await query(
+          'SELECT id FROM attachments WHERE document_id = $1 AND entity_type = $2 AND entity_id = $3',
+          [documentId, entityType, entityId]
+        );
+        if (dupCheck.rows.length > 0) {
+          return res.status(400).json({ message: 'Document is already attached to this entity' });
+        }
       }
 
-      // Check for duplicate attachment
-      const dupCheck = await query(
-        'SELECT id FROM attachments WHERE document_id = $1 AND entity_type = $2 AND entity_id = $3',
-        [documentId, entityType, entityId]
-      );
-      if (dupCheck.rows.length > 0) {
-        return res.status(400).json({ message: 'Document is already attached to this entity' });
+      if (folderId) {
+        const folderCheck = await query(
+          'SELECT 1 FROM folders WHERE id = $1 AND workspace_id = $2',
+          [folderId, workspaceId]
+        );
+        if (folderCheck.rows.length === 0) {
+          return res.status(400).json({ message: 'Folder does not belong to this workspace' });
+        }
+
+        // Check for duplicate attachment
+        const dupCheck = await query(
+          'SELECT id FROM attachments WHERE folder_id = $1 AND entity_type = $2 AND entity_id = $3',
+          [folderId, entityType, entityId]
+        );
+        if (dupCheck.rows.length > 0) {
+          return res.status(400).json({ message: 'Folder is already attached to this entity' });
+        }
       }
 
       const insertResult = await query(
-        `INSERT INTO attachments (document_id, entity_type, entity_id)
-         VALUES ($1, $2, $3) 
+        `INSERT INTO attachments (document_id, folder_id, entity_type, entity_id)
+         VALUES ($1, $2, $3, $4) 
          RETURNING *`,
-        [documentId, entityType, entityId]
+        [documentId || null, folderId || null, entityType, entityId]
       );
 
-      // Re-fetch with document info
+      // Re-fetch with document and folder info
       const fetchResult = await query(
-        `SELECT a.id, a.document_id, a.entity_type, a.entity_id, a.created_at,
-                d.name AS document_name, d.file_url, d.file_size, d.mime_type
+        `SELECT a.id, a.document_id, a.folder_id, a.entity_type, a.entity_id, a.created_at,
+                d.name AS document_name, d.file_url, d.file_size, d.mime_type,
+                f.name AS folder_name
          FROM attachments a
-         JOIN documents d ON a.document_id = d.id
+         LEFT JOIN documents d ON a.document_id = d.id
+         LEFT JOIN folders f ON a.folder_id = f.id
          WHERE a.id = $1`,
         [insertResult.rows[0].id]
       );

@@ -14,7 +14,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
     return res.status(401).json({ message: 'Unauthorized' });
   }
 
-  const { workspaceId, phoneNumber, role } = req.body;
+  const { workspaceId, phoneNumber, role, permissions, allocatedBudget } = req.body;
 
   // Input Validation
   if (!workspaceId || typeof workspaceId !== 'string') {
@@ -75,8 +75,8 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
 
       // Create Invite
       const inviteResult = await query(
-        "INSERT INTO invitations (workspace_id, phone_number, role, status, invited_by) VALUES ($1, $2, $3, 'PENDING', $4) RETURNING *",
-        [workspaceId, targetPhone, role, userId]
+        "INSERT INTO invitations (workspace_id, phone_number, role, status, invited_by, permissions, allocated_budget) VALUES ($1, $2, $3, 'PENDING', $4, $5, $6) RETURNING *",
+        [workspaceId, targetPhone, role, userId, permissions ? JSON.stringify(permissions) : null, allocatedBudget || null]
       );
 
       // Create Notification for target user
@@ -94,8 +94,8 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
     } else {
       // Create Pending Invite for unregistered user
       const inviteResult = await query(
-        "INSERT INTO invitations (workspace_id, phone_number, role, status, invited_by) VALUES ($1, $2, $3, 'PENDING', $4) RETURNING *",
-        [workspaceId, targetPhone, role, userId]
+        "INSERT INTO invitations (workspace_id, phone_number, role, status, invited_by, permissions, allocated_budget) VALUES ($1, $2, $3, 'PENDING', $4, $5, $6) RETURNING *",
+        [workspaceId, targetPhone, role, userId, permissions ? JSON.stringify(permissions) : null, allocatedBudget || null]
       );
 
       return res.status(201).json({

@@ -13,11 +13,13 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ message: 'Workspace ID is required' });
   }
 
-  // 1. Check if the user is a member of the workspace and get their role
+  // 1. Check if the user is a member of the workspace and get their role and custom settings
   let memberRole: 'OWNER' | 'EDITOR' | 'VIEWER';
+  let memberPermissions: any = null;
+  let memberAllocatedBudget: any = null;
   try {
     const memberCheck = await query(
-      'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT role, permissions, allocated_budget FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
       [workspaceId, userId]
     );
 
@@ -25,6 +27,8 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       return res.status(403).json({ message: 'Forbidden: You are not a member of this workspace' });
     }
     memberRole = memberCheck.rows[0].role;
+    memberPermissions = memberCheck.rows[0].permissions;
+    memberAllocatedBudget = memberCheck.rows[0].allocated_budget;
   } catch (error: any) {
     console.error('Workspace Member Check Error:', error);
     return res.status(500).json({ message: 'Internal Server Error' });
@@ -46,6 +50,8 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         workspace: {
           ...result.rows[0],
           role: memberRole,
+          permissions: memberPermissions,
+          allocated_budget: memberAllocatedBudget,
         },
       });
     } catch (error: any) {
@@ -104,6 +110,8 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         workspace: {
           ...updateResult.rows[0],
           role: memberRole,
+          permissions: memberPermissions,
+          allocated_budget: memberAllocatedBudget,
         },
       });
     } catch (error: any) {
