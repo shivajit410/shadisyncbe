@@ -36,7 +36,30 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         return res.status(400).json({ message: 'A valid positive expense amount is required' });
       }
 
-      // Check user's allocated budget limit in the workspace (excluding this expense's current amount)
+      // 1. Check workspace overall budget limit (excluding this expense's current amount)
+      const budgetRes = await query(
+        'SELECT allocated FROM budgets WHERE workspace_id = $1',
+        [workspaceId]
+      );
+      if (budgetRes.rows.length > 0) {
+        const budget = budgetRes.rows[0];
+        if (budget.allocated !== null && budget.allocated !== undefined) {
+          const allocatedLimit = Number(budget.allocated);
+          // Calculate the total spent in this workspace, excluding this expense
+          const totalSpentRes = await query(
+            'SELECT SUM(amount) AS total_spent FROM expenses WHERE workspace_id = $1 AND id != $2',
+            [workspaceId, expenseId]
+          );
+          const currentTotalSpent = Number(totalSpentRes.rows[0].total_spent || 0);
+          if (currentTotalSpent + Number(amount) > allocatedLimit) {
+            return res.status(400).json({
+              message: `Expense exceeds workspace overall budget limit of ₹${allocatedLimit.toLocaleString('en-IN')}. Remaining: ₹${(allocatedLimit - currentTotalSpent).toLocaleString('en-IN')}`,
+            });
+          }
+        }
+      }
+
+      // 2. Check user's allocated budget limit in the workspace (excluding this expense's current amount)
       const memberRes = await query(
         'SELECT role, allocated_budget FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
         [workspaceId, userId]
