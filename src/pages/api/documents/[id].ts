@@ -38,13 +38,16 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
-      } else if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      } else if (supabase) {
         // Extract storage path from supabase public URL
         const marker = '/storage/v1/object/public/documents/';
         const markerIndex = doc.file_url.indexOf(marker);
         if (markerIndex !== -1) {
           const storagePath = doc.file_url.substring(markerIndex + marker.length);
-          await supabase.storage.from('documents').remove([storagePath]);
+          const { error: removeError } = await supabase.storage.from('documents').remove([storagePath]);
+          if (removeError) {
+            console.error('Failed to delete file from Supabase storage:', removeError);
+          }
         }
       }
     } catch (storageErr) {

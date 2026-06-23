@@ -134,7 +134,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       );
 
       // Check budget spent warning thresholds (90% / 100%)
-      await checkAndNotifyBudget(workspaceId);
+      await checkAndNotifyBudget(workspaceId, userId);
 
       return res.status(200).json({ expense: updateResult.rows[0] });
     }
@@ -157,7 +157,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
       );
 
       // Check budget spent warning thresholds (90% / 100%)
-      await checkAndNotifyBudget(workspaceId);
+      await checkAndNotifyBudget(workspaceId, userId);
 
       return res.status(200).json({
         message: 'Expense deleted successfully',

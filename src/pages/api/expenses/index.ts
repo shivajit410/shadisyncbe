@@ -10,7 +10,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     try {
       const result = await query(
-        `SELECT e.id, e.amount, e.description, e.expense_date, e.created_at, e.task_id,
+        `SELECT e.id, e.amount, e.description, e.expense_date, e.created_at, e.task_id, e.created_by,
                 c.name AS category_name, ev.title AS event_title, u.name AS creator_name, t.title AS task_title
          FROM expenses e
          LEFT JOIN categories c ON e.category_id = c.id

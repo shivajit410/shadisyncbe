@@ -52,7 +52,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
           [
             role || null,
             permissions ? JSON.stringify(permissions) : null,
-            allocatedBudget !== undefined && allocatedBudget !== '' ? Number(allocatedBudget) : null,
+            allocatedBudget !== undefined && allocatedBudget !== null && allocatedBudget !== '' ? Number(allocatedBudget) : null,
             workspaceId,
             targetUserId
           ]
@@ -73,7 +73,7 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
           [
             role || null,
             permissions ? JSON.stringify(permissions) : null,
-            allocatedBudget !== undefined && allocatedBudget !== '' ? Number(allocatedBudget) : null,
+            allocatedBudget !== undefined && allocatedBudget !== null && allocatedBudget !== '' ? Number(allocatedBudget) : null,
             invitationId,
             workspaceId
           ]
