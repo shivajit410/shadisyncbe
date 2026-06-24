@@ -25,13 +25,27 @@ async function handler(req: AuthenticatedNextApiRequest, res: NextApiResponse) {
 
     // Handle UPDATE
     if (req.method === 'PUT' || req.method === 'PATCH') {
-      // Check edit permission: allow edit if workspace permission granted OR user is assignee OR user is creator
-      const hasEditPerm = await verifyPermission(userId, workspaceId, 'Tasks', 'edit');
+      // Fetch user's role in the workspace
+      const memberRoleRes = await query(
+        'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+        [workspaceId, userId]
+      );
+      const userRole = memberRoleRes.rows[0]?.role;
+      const isWorkspaceOwner = userRole === 'OWNER';
       const isAssignee = previousAssignee === userId;
-      const isCreator = taskCreator === userId;
 
-      if (!hasEditPerm && !isAssignee && !isCreator) {
-        return res.status(403).json({ message: 'Forbidden: You do not have permission to edit tasks' });
+      // If the task has an assignee, ONLY the workspace owner and the assignee can modify/tick it!
+      if (previousAssignee) {
+        if (!isWorkspaceOwner && !isAssignee) {
+          return res.status(403).json({ message: 'Forbidden: Only the workspace owner and the assigned user can modify this task' });
+        }
+      } else {
+        // Fallback to standard permission checks if there is no assignee
+        const hasEditPerm = await verifyPermission(userId, workspaceId, 'Tasks', 'edit');
+        const isCreator = taskCreator === userId;
+        if (!hasEditPerm && !isAssignee && !isCreator && !isWorkspaceOwner) {
+          return res.status(403).json({ message: 'Forbidden: You do not have permission to edit tasks' });
+        }
       }
 
       const { title, description, status, priority, assignedTo, dueDate, eventId, categoryId } = req.body;
